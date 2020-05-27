@@ -11,13 +11,14 @@ from sqrtm import sqrtm,sqrtm_ad
 #rs = npr.RandomState(0)
 def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,callback=None,POINTS=10,AC=0.5,STEPS=5):
 
+    decay = 0.01
     if D is None:
         print("D")
         exit(0)
 
     if BURNIN is None:
         BURNIN = int(EPISODE/2)
-
+    DECAY_FACTOR = 1/exp(log(10)/BURNIN)
     n = POINTS
 
     z2x = lambda z: z
@@ -62,7 +63,7 @@ def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,cal
             x2z = lambda x: np.linalg.solve(cov_hat_half, x - mu_0)
 
         xStar = x[-1]
-        K0 = H - U(xStar).sum()
+        K0 = np.clip(H - U(xStar).sum(),1e-3,H)
         p0 = np.random.randn(D, POINTS)
         K1 = K(p0).sum()
         r0 = np.sqrt(K1/K0)
@@ -96,50 +97,55 @@ def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,cal
         alphas.append(alpha.mean())
         deltas.append(dt)
         if j < BURNIN:
-            if alpha.mean() > np.random.rand()*(1-0.3)+0.3:
-                H = H*1.1
-            elif alpha.mean() < np.random.rand()*0.3:
-                H = H/1.1
+            if alpha.mean() > np.random.rand()*(1-AC)+AC:
+                H = H*(1+decay)
+            elif alpha.mean() < np.random.rand()*AC:
+                H = H/(1+decay)
             if np.isnan(M_) or np.isnan(m_):
-                dt = dt*1.1
+                dt = dt*(1+decay)
             elif np.isnan(M_) and np.isnan(m_):
-                dt = dt/1.1
+                dt = dt/(1+decay)
+            decay = decay * DECAY_FACTOR
         if VERBOSE:
             print(j, np.mean(alpha),cov_hat,dt,np.cov(x[-1]),H,M_,m_)
     return {'x': np.swapaxes(np.array(x),1,2).reshape(-1,2), 'p':np.array(p),'alpha':alphas,'delta':deltas}
 
 
 if __name__ == '__main__':
-    dt = .000001
-    POINTS = 100
+    dt = .0001
+    POINTS = 1000
     EPISODE = 10000
-    BURNIN = int(EPISODE/2)
-    R = 0.2
     D = 2
     n = POINTS
     STEPS = 5
-
-    K = [.9, .99, .999, .9999, .99999, .999999, .9999999, .99999999, .999999999, .9999999999,]
+    rho = [.9,
+            .99999999999999999999999999999999999999999999999999,
+            .9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999,
+            1
+    ]
+    labels=['1-10^-1','1-10^-50','1-10^-100', '1']
     ds = []
-    for i in range(len(K)):
+    for i in range(len(rho)):
         print(i)
-        k = K[i]
-        SIGMA = np.array([[1, k],[k, 1]])
-        U = lambda x: np.sum(x * np.linalg.solve(SIGMA,x), axis = 0)/2
-        dU = lambda x: np.linalg.solve(SIGMA, x)
+        r = rho[i]
+        SIGMA = np.array([[1, r],[r, 1]])
+        U = lambda x: np.sum(x * np.linalg.solve(SIGMA+1e-8*np.eye(D),x), axis = 0)/2
+        dU = lambda x: np.linalg.solve(SIGMA+1e-8*np.eye(D), x)
 
-        np.random.seed(12345)
+        #np.random.seed(12345)
         info = ghmc(U, dU, D=D, dt=dt,EPISODE=EPISODE, POINTS=POINTS,VERBOSE=False)
         x = info['x']
         #np.cov(np.transpose(x[int(EPISODE/2):,:]))
         d0 = np.sum(np.square(np.cov(np.transpose(x[int(POINTS*EPISODE/2):,:])) - SIGMA))
         ds.append(d0)
+        print(d0)
     #plt.plot(x[:,0], x[:,1], '.b')
     #plt.pause(10);
 
     plt.plot(ds,'o-')
-    plt.xlabel('k')
-    plt.xticks(list(range(len(K))), [str(i) for i in K], rotation=20)
+    plt.xlabel('rho')
+    #plt.xticks(list(range(len(rho))), [str(r) for r in rho], rotation=90)
+    plt.xticks(list(range(len(rho))),labels,rotation=20)
 
     plt.ylabel(r'$\left|\Sigma - \hat \Sigma\right|$')
 
