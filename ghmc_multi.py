@@ -119,9 +119,13 @@ if __name__ == '__main__':
     n = POINTS
     STEPS = 5
     rho = [.9,
-            .99999999999999999999999999999999999999999999999999,
-            .9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999,
-            1
+           .99,
+           .999,
+           .9999,
+           .99999,
+           .999999,
+           .9999999,
+           .99999999
     ]
     labels=['1-10^-1','1-10^-50','1-10^-100', '1']
     ds = []
@@ -129,8 +133,8 @@ if __name__ == '__main__':
         print(i)
         r = rho[i]
         SIGMA = np.array([[1, r],[r, 1]])
-        U = lambda x: np.sum(x * np.linalg.solve(SIGMA+1e-8*np.eye(D),x), axis = 0)/2
-        dU = lambda x: np.linalg.solve(SIGMA+1e-8*np.eye(D), x)
+        U = lambda x: np.sum(x * np.linalg.solve(SIGMA,x), axis = 0)/2
+        dU = lambda x: np.linalg.solve(SIGMA, x)
 
         #np.random.seed(12345)
         info = ghmc(U, dU, D=D, dt=dt,EPISODE=EPISODE, POINTS=POINTS,VERBOSE=False)
@@ -144,8 +148,8 @@ if __name__ == '__main__':
 
     plt.plot(ds,'o-')
     plt.xlabel('rho')
-    #plt.xticks(list(range(len(rho))), [str(r) for r in rho], rotation=90)
-    plt.xticks(list(range(len(rho))),labels,rotation=20)
+    plt.xticks(list(range(len(rho))), [str(r) for r in rho], rotation=20)
+    #plt.xticks(list(range(len(rho))),labels,rotation=20)
 
     plt.ylabel(r'$\left|\Sigma - \hat \Sigma\right|$')
 
