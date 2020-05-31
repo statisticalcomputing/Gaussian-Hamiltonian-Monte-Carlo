@@ -1,24 +1,29 @@
-''' stochastic ghmc
+''' "Massively Parallel" HMC with Coordinate Transformation
 '''
+
 import numpy as np
 from math import sqrt, exp, log
 from numpy.random import randn, rand
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
-from argmin import argmin
 
-from sqrtm import sqrtm,sqrtm_ad
 #rs = npr.RandomState(0)
-def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,callback=None,POINTS=10,AC=0.5,STEPS=5):
 
-    decay = 0.01
+def sqrtm(x):
+    u, s, vh = np.linalg.svd(x, full_matrices=True)
+    L = np.matmul(np.matmul(vh,np.diag(np.sqrt(np.abs(s)))),vh.T)
+    return L
+
+def ghmc(U,dU, dt = .001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,callback=None,POINTS=10,AC=0.5,STEPS=5):
+
+    decay = 0.1
     if D is None:
         print("D")
         exit(0)
 
     if BURNIN is None:
         BURNIN = int(EPISODE/2)
-    DECAY_FACTOR = 1/exp(log(10)/BURNIN)
+    DECAY_FACTOR = 1/exp(log(1000)/BURNIN)
     n = POINTS
 
     z2x = lambda z: z
@@ -75,8 +80,8 @@ def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,cal
             zStar = zStar + dt*dK(pStar)
             pStar = pStar - dt*np.dot(cov_hat_half, dU(z2x(zStar)))
             E.append(U(z2x(zStar)))
-        if VERBOSE:
-            print(np.array(E).argmax(axis=0).mean(),np.array(E).argmin(axis=0).mean())
+        #if VERBOSE:
+        #    print(np.array(E).argmax(axis=0).mean(),np.array(E).argmin(axis=0).mean())
         xStar = z2x(zStar)
 
         alpha = np.exp(np.clip(U(x[-1])- U(xStar),-10,0))
@@ -85,15 +90,14 @@ def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,cal
         pStar[:,ridx] = p[-1][:,ridx]
         x.append(xStar)
         p.append(pStar)
-        #alpha_bar = alpha_bar * 0.9 + alpha.mean()*.1
-        
-        M = np.array(E).argmax(axis=0)
-        m = np.array(E).argmin(axis=0)
-        Mi = np.logical_and(M>0 , M<STEPS-1)
-        mi = np.logical_and(m>0 , m<STEPS-1)
-        M_ = np.mean(M[Mi]) if M[Mi].size > 0 else np.nan
-        m_ = np.mean(m[mi]) if m[mi].size > 0 else np.nan
-        
+
+        M = np.mean(np.array(E).argmax(axis=0))
+        m = np.mean(np.array(E).argmin(axis=0))
+        # Mi = np.logical_and(M>0 , M<STEPS-1)
+        # mi = np.logical_and(m>0 , m<STEPS-1)
+        # M_ = np.mean(M[Mi]) if M[Mi].size > 0 else np.nan
+        # m_ = np.mean(m[mi]) if m[mi].size > 0 else np.nan
+
         alphas.append(alpha.mean())
         deltas.append(dt)
         if j < BURNIN:
@@ -101,13 +105,13 @@ def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,cal
                 H = H*(1+decay)
             elif alpha.mean() < np.random.rand()*AC:
                 H = H/(1+decay)
-            if np.isnan(M_) or np.isnan(m_):
+            if M > STEPS/2 and m> STEPS/2:
                 dt = dt*(1+decay)
-            elif np.isnan(M_) and np.isnan(m_):
+            elif M<STEPS/2 and m< STEPS/2:#np.isnan(M_) and np.isnan(m_):
                 dt = dt/(1+decay)
             decay = decay * DECAY_FACTOR
-        if VERBOSE:
-            print(j, np.mean(alpha),cov_hat,dt,np.cov(x[-1]),H,M_,m_)
+        if VERBOSE and j % 100 == 0:
+            print(j, np.mean(alpha),dt,M_,m_)
     return {'x': np.swapaxes(np.array(x),1,2).reshape(-1,2), 'p':np.array(p),'alpha':alphas,'delta':deltas}
 
 
@@ -118,7 +122,15 @@ if __name__ == '__main__':
     D = 2
     n = POINTS
     STEPS = 5
-    rho = [.9,
+    rho = [.1,
+           .2,
+           .3,
+           .4,
+           .5,
+           .6,
+           .7,
+           .8,
+           .9,
            .99,
            .999,
            .9999,
@@ -127,7 +139,6 @@ if __name__ == '__main__':
            .9999999,
            .99999999
     ]
-    labels=['1-10^-1','1-10^-50','1-10^-100', '1']
     ds = []
     for i in range(len(rho)):
         print(i)
@@ -136,20 +147,19 @@ if __name__ == '__main__':
         U = lambda x: np.sum(x * np.linalg.solve(SIGMA,x), axis = 0)/2
         dU = lambda x: np.linalg.solve(SIGMA, x)
 
-        #np.random.seed(12345)
+
         info = ghmc(U, dU, D=D, dt=dt,EPISODE=EPISODE, POINTS=POINTS,VERBOSE=False)
         x = info['x']
-        #np.cov(np.transpose(x[int(EPISODE/2):,:]))
+
         d0 = np.sum(np.square(np.cov(np.transpose(x[int(POINTS*EPISODE/2):,:])) - SIGMA))
         ds.append(d0)
+        print(np.cov(np.transpose(x[int(POINTS*EPISODE/2):,:])), SIGMA)
         print(d0)
-    #plt.plot(x[:,0], x[:,1], '.b')
-    #plt.pause(10);
+
 
     plt.plot(ds,'o-')
     plt.xlabel('rho')
     plt.xticks(list(range(len(rho))), [str(r) for r in rho], rotation=20)
-    #plt.xticks(list(range(len(rho))),labels,rotation=20)
 
     plt.ylabel(r'$\left|\Sigma - \hat \Sigma\right|$')
 
