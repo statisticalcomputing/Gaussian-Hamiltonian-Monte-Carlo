@@ -7,7 +7,7 @@ from numpy.random import randn, rand
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
 
-#rs = npr.RandomState(0)
+np.random.seed(0)
 
 def sqrtm(x):
     u, s, vh = np.linalg.svd(x, full_matrices=True)
@@ -139,6 +139,7 @@ if __name__ == '__main__':
            .9999999,
            .99999999
     ]
+
     ds = []
     for i in range(len(rho)):
         print(i)
@@ -158,6 +159,7 @@ if __name__ == '__main__':
 
 
     plt.plot(ds,'o-')
+    plt.yscale('log')
     plt.xlabel('rho')
     plt.xticks(list(range(len(rho))), [str(r) for r in rho], rotation=20)
 
