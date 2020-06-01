@@ -93,7 +93,7 @@ def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,cal
         M = np.mean(np.array(E).argmax(axis=0))
         m = np.mean(np.array(E).argmin(axis=0))
         S = np.unique(np.array(E).argmax(axis=0)).size
-        s = np.unique(np.array(E).argmax(axis=0)).size
+        s = np.unique(np.array(E).argmin(axis=0)).size
 
         alphas.append(alpha.mean())
         deltas.append(dt)
