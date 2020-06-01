@@ -14,15 +14,15 @@ def sqrtm(x):
     L = np.matmul(np.matmul(vh,np.diag(np.sqrt(np.abs(s)))),vh.T)
     return L
 
-def ghmc(U,dU, dt = .001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,callback=None,POINTS=10,AC=0.5,STEPS=5):
+def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,callback=None,POINTS=10,AC=0.3,STEPS=10):
 
-    decay = 0.1
+    decay = 0.02
     if D is None:
         print("D")
         exit(0)
 
     if BURNIN is None:
-        BURNIN = int(EPISODE/2)
+        BURNIN = int(EPISODE/4)
     DECAY_FACTOR = 1/exp(log(1000)/BURNIN)
     n = POINTS
 
@@ -80,8 +80,7 @@ def ghmc(U,dU, dt = .001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,callba
             zStar = zStar + dt*dK(pStar)
             pStar = pStar - dt*np.dot(cov_hat_half, dU(z2x(zStar)))
             E.append(U(z2x(zStar)))
-        #if VERBOSE:
-        #    print(np.array(E).argmax(axis=0).mean(),np.array(E).argmin(axis=0).mean())
+
         xStar = z2x(zStar)
 
         alpha = np.exp(np.clip(U(x[-1])- U(xStar),-10,0))
@@ -93,10 +92,8 @@ def ghmc(U,dU, dt = .001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,callba
 
         M = np.mean(np.array(E).argmax(axis=0))
         m = np.mean(np.array(E).argmin(axis=0))
-        # Mi = np.logical_and(M>0 , M<STEPS-1)
-        # mi = np.logical_and(m>0 , m<STEPS-1)
-        # M_ = np.mean(M[Mi]) if M[Mi].size > 0 else np.nan
-        # m_ = np.mean(m[mi]) if m[mi].size > 0 else np.nan
+        S = np.unique(np.array(E).argmax(axis=0)).size
+        s = np.unique(np.array(E).argmax(axis=0)).size
 
         alphas.append(alpha.mean())
         deltas.append(dt)
@@ -105,13 +102,13 @@ def ghmc(U,dU, dt = .001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,callba
                 H = H*(1+decay)
             elif alpha.mean() < np.random.rand()*AC:
                 H = H/(1+decay)
-            if M > STEPS/2 and m> STEPS/2:
+            if s==2 or S == 2:
                 dt = dt*(1+decay)
-            elif M<STEPS/2 and m< STEPS/2:#np.isnan(M_) and np.isnan(m_):
+            elif np.array([M,m]).std()>1:
                 dt = dt/(1+decay)
             decay = decay * DECAY_FACTOR
-        if VERBOSE and j % 100 == 0:
-            print(j, np.mean(alpha),dt,M_,m_)
+        if VERBOSE and j % 1000 == 0:
+            print(j, np.mean(alpha),dt,M,m,S,s,np.array([M,m]).std())
     return {'x': np.swapaxes(np.array(x),1,2).reshape(-1,2), 'p':np.array(p),'alpha':alphas,'delta':deltas}
 
 
@@ -137,9 +134,7 @@ if __name__ == '__main__':
            .99999,
            .999999,
            .9999999,
-           .99999999
     ]
-
     ds = []
     for i in range(len(rho)):
         print(i)
@@ -149,7 +144,7 @@ if __name__ == '__main__':
         dU = lambda x: np.linalg.solve(SIGMA, x)
 
 
-        info = ghmc(U, dU, D=D, dt=dt,EPISODE=EPISODE, POINTS=POINTS,VERBOSE=False)
+        info = ghmc(U, dU, D=D, dt=dt,EPISODE=EPISODE, POINTS=POINTS)
         x = info['x']
 
         d0 = np.sum(np.square(np.cov(np.transpose(x[int(POINTS*EPISODE/2):,:])) - SIGMA))
