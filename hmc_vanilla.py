@@ -1,14 +1,8 @@
 import numpy as np
-from math import sqrt, exp, log
-from numpy.random import randn, rand
-from numpy.linalg import norm
 import matplotlib.pyplot as plt
-from argmin import argmin
-import gc
-from math import log
+
 def hmc(U, dU, x0= None,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,L=5, delta=.05,WRONG=False):
 
-    
     if BURNIN is None:
         BURNIN = int(EPISODE/2)
 
@@ -20,13 +14,15 @@ def hmc(U, dU, x0= None,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,L=5, de
     K = lambda p: np.dot(p, p)/2
     dK = lambda p: p
     if x0 is None:
-        xStar = argmin(lambda x,_:U(x),lambda x,_:dU(x), np.random.randn(D))
+        xStar = np.random.randn(D)
     else:
         xStar = x0
     pStar = np.random.randn(D)
     x  = [xStar]
+    p  = [pStar]
     for i in range(EPISODE):
         xStar = x[-1]
+        pStar = np.random.randn(D)
         K_p1 = K(pStar)
         pStar = np.random.randn(D)
         U_x1 = U(xStar)
@@ -44,12 +40,15 @@ def hmc(U, dU, x0= None,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,L=5, de
             alpha = np.exp(np.clip(K_p2+U_x1-U_x2-K_p1,-10,0))
         if alpha > np.random.rand():
             x.append(xStar)
+            p.append(pStar)
         else:
             x.append(x[-1])
+            p.append(p[-1])
     return {'x': np.array(x)}
 
 
 if __name__ == '__main__':
+    np.random.seed(0)
     EPISODE = 10000
     D = 2
     rho = [.1,
@@ -62,11 +61,14 @@ if __name__ == '__main__':
            .8,
            .9
     ]
-    DELTA = [0.01,0.02, 0.04, 0.08, 0.16, 0.32]
-    DS = []
-    DS1 = []
+
+    EXP = 2
+    if EXP == 1:
+        #DELTA = [0.01,0.02, 0.04, 0.08, 0.16, 0.32]
+        DELTA = [0.08, 0.09,0.1, 0.11, 0.12, 0.13,0.14,0.15]
+    else:
+        DELTA = [0.2,0.22,0.24,0.26,0.28, 0.3]
     plt.ion()
-    #np.random.seed(12345)
     for i in range(len(DELTA)):
         delta = DELTA[i]
         ds = []
@@ -74,33 +76,34 @@ if __name__ == '__main__':
         print(delta)
         for j in range(len(rho)):
             r = rho[j]
-            #print('r',r)
-            SIGMA = np.array([[1, r],[r, 1]])
+            if EXP == 1:
+                SIGMA = np.array([[1, r],
+                                  [r, 1]])
+            else:
+                SIGMA = np.array([[1/r, r],
+                                  [r, 1/r]])
             U = lambda x: np.sum(x * np.linalg.solve(SIGMA,x), axis = 0)/2
             dU = lambda x: np.linalg.solve(SIGMA, x)
 
             info = hmc(U, dU, D=D, delta=delta,EPISODE=EPISODE, WRONG=True)
             x = info['x']
             d0_ = np.sum(np.square(np.cov(np.transpose(x[int(EPISODE/2):,:])) - SIGMA))
-            ds.append(log(d0_))
+            ds.append(d0_)
             info = hmc(U, dU, D=D, delta=delta, EPISODE=EPISODE, WRONG=False)
             x = info['x']
             d0 = np.sum(np.square(np.cov(np.transpose(x[int(EPISODE/2):,:])) - SIGMA))
-            ds1.append(log(d0))
+            ds1.append(d0)
             print(r, d0_, d0)
-        DS.append(ds)
-        DS1.append(ds1)
         plt.plot(ds,'--')
         plt.plot(ds1,'-')
+        plt.yscale('log')
         plt.show()
         plt.pause(0.1)
-    # for i in range(len(DELTA)):
-    #     plt.plot(DS[i],'--')
-    #     plt.plot(DS1[i],'-')
-    plt.xlabel('rho')
-    plt.xticks(list(range(len(rho))), [str(r) for r in rho], rotation=90)
 
-    plt.ylabel(r'log $\left|\Sigma - \hat \Sigma\right|$')
+    plt.xlabel(R'$\rho$')
+    plt.xticks(list(range(len(rho))), [str(r) for r in rho])
+
+    plt.ylabel(r'$\left|\Sigma - \hat \Sigma\right|$')
     plt.legend(['{}/{}'.format(r,d) for d in DELTA for r in ['hmc','corrected'] ])
     plt.show()
     plt.pause(10000)
