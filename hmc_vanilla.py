@@ -21,19 +21,32 @@ def hmc(U, dU, x0= None,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,L=5, de
     x  = [xStar]
     p  = [pStar]
     for i in range(EPISODE):
-        xStar = x[-1]
-        pStar = np.random.randn(D)
-        K_p1 = K(pStar)
-        pStar = np.random.randn(D)
-        U_x1 = U(xStar)
-        K_p2 = K(pStar)
-        H0 = U(xStar) + K(pStar)
+        # state s1
+        x1 = x[-1]
+        U_x1 = U(x1)
+        p1 = np.random.randn(D)
+        K_p1 = K(p1)
+
+        p2 = np.random.randn(D)
+        # state s2 now
+
+        K_p2 = K(p2)
+        H0 = U(x1) + K(p2)
+
+        pStar = p2
+        xStar = x1
+
         for j in range(L):
             xStar = xStar + delta*dK(pStar)
             pStar = pStar - delta*dU(xStar)
-        U_x2 = U(xStar)
-        K_p3 = K(pStar)
-        Hstar = U(xStar) + K(pStar)
+
+        # state s3 now
+        x2 = xStar
+        p3 = pStar
+        U_x2 = U(x2)
+        K_p3 = K(p3)
+        Hstar = U(x2) + K(p3)
+
         if WRONG:
             alpha = np.exp(np.clip(H0-Hstar,-10,0))
         else:
@@ -62,7 +75,7 @@ if __name__ == '__main__':
            .9
     ]
 
-    EXP = 2
+    EXP = 1
     if EXP == 1:
         #DELTA = [0.01,0.02, 0.04, 0.08, 0.16, 0.32]
         DELTA = [0.08, 0.09,0.1, 0.11, 0.12, 0.13,0.14,0.15]
