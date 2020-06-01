@@ -2,15 +2,15 @@
 
 ## Basic Idea
 
-It transform spatial coordinate and simulate.
-
-It is more accurate.
+transform spatial coordinate + energy conservation + massively sampling.
 
 ## Files
 
-ghmc_multi.py:  100 line full function sampler
+ghmc_multi.py:  100 lines full function sampler
 
 hmc_vanilly.py: corrected ap
+
+experimental code:
 
 demos.m
 call ghmc
