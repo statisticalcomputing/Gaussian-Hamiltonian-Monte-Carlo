@@ -1,14 +1,16 @@
-# Gaussian-Hamiltonian-Monte-Carlo
+# Hamiltonian Monte Carlo Based on Coordinate Transformation
 
 ## Basic Idea
 
-Like riemann HMC, but not same.
+It transform spatial coordinate and simulate.
 
-It just transform spatial coordinate and simulate.
-
-It is simple and effective, and is more accurate in some cases.
+It is more accurate.
 
 ## Files
+
+ghmc_multi.py:  100 line full function sampler
+
+hmc_vanilly.py: corrected ap
 
 demos.m
 call ghmc
