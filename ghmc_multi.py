@@ -16,7 +16,8 @@ def sqrtm(x):
 
 def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,callback=None,POINTS=10,AC=0.3,STEPS=10):
 
-    decay = 0.02
+    decay = 0.1
+    decay_dt = 0.01
     if D is None:
         print("D")
         exit(0)
@@ -98,15 +99,17 @@ def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,cal
         alphas.append(alpha.mean())
         deltas.append(dt)
         if j < BURNIN:
-            if alpha.mean() > np.random.rand()*(1-AC)+AC:
+            turned_AC = np.random.randn()*min(AC,1-AC)/6 + AC
+            if alpha.mean() > turned_AC:#np.random.rand()*(1-AC)+AC:
                 H = H*(1+decay)
-            elif alpha.mean() < np.random.rand()*AC:
+            elif alpha.mean() < turned_AC:#np.random.rand()*AC:
                 H = H/(1+decay)
             if s==2 or S == 2:
-                dt = dt*(1+decay)
+                dt = dt*(1+decay_dt)
             elif np.array([M,m]).std()>1:
-                dt = dt/(1+decay)
+                dt = dt/(1+decay_dt)
             decay = decay * DECAY_FACTOR
+            decay_dt = decay_dt * DECAY_FACTOR
         if VERBOSE and j % 1000 == 0:
             print(j, np.mean(alpha),dt,M,m,S,s,np.array([M,m]).std())
     return {'x': np.swapaxes(np.array(x),1,2).reshape(-1,2), 'p':np.array(p),'alpha':alphas,'delta':deltas}
@@ -134,6 +137,7 @@ if __name__ == '__main__':
            .99999,
            .999999,
            .9999999,
+           .99999999,
     ]
     ds = []
     for i in range(len(rho)):
@@ -144,7 +148,7 @@ if __name__ == '__main__':
         dU = lambda x: np.linalg.solve(SIGMA, x)
 
 
-        info = ghmc(U, dU, D=D, dt=dt,EPISODE=EPISODE, POINTS=POINTS)
+        info = ghmc(U, dU, D=D, dt=dt,EPISODE=EPISODE, POINTS=POINTS,VERBOSE=True)
         x = info['x']
 
         d0 = np.sum(np.square(np.cov(np.transpose(x[int(POINTS*EPISODE/2):,:])) - SIGMA))
