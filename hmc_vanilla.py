@@ -31,7 +31,7 @@ def hmc(U, dU, x0= None,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,L=5, de
         # state s2 now
 
         K_p2 = K(p2)
-        H0 = U(x1) + K(p2)
+        H0 = U_x1 + K_p2
 
         pStar = p2
         xStar = x1
@@ -45,7 +45,7 @@ def hmc(U, dU, x0= None,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,L=5, de
         p3 = pStar
         U_x2 = U(x2)
         K_p3 = K(p3)
-        Hstar = U(x2) + K(p3)
+        Hstar = U_x2 + K_p3
 
         if WRONG:
             alpha = np.exp(np.clip(H0-Hstar,-10,0))
@@ -75,11 +75,12 @@ if __name__ == '__main__':
            .9
     ]
 
-    EXP = 1
+    EXP = 2
     if EXP == 1:
         #DELTA = [0.01,0.02, 0.04, 0.08, 0.16, 0.32]
         DELTA = [0.08, 0.09,0.1, 0.11, 0.12, 0.13,0.14,0.15]
     else:
+        #DELTA = [0.01,0.02, 0.04, 0.08, 0.16, 0.32]
         DELTA = [0.2,0.22,0.24,0.26,0.28, 0.3]
     plt.ion()
     for i in range(len(DELTA)):
@@ -100,11 +101,11 @@ if __name__ == '__main__':
 
             info = hmc(U, dU, D=D, delta=delta,EPISODE=EPISODE, WRONG=True)
             x = info['x']
-            d0_ = np.sum(np.square(np.cov(np.transpose(x[int(EPISODE/2):,:])) - SIGMA))
+            d0_ = np.sqrt(np.mean(np.square(np.cov(np.transpose(x[int(EPISODE/2):,:])) - SIGMA)))
             ds.append(d0_)
             info = hmc(U, dU, D=D, delta=delta, EPISODE=EPISODE, WRONG=False)
             x = info['x']
-            d0 = np.sum(np.square(np.cov(np.transpose(x[int(EPISODE/2):,:])) - SIGMA))
+            d0 = np.sqrt(np.mean(np.square(np.cov(np.transpose(x[int(EPISODE/2):,:])) - SIGMA)))
             ds1.append(d0)
             print(r, d0_, d0)
         plt.plot(ds,'--')
