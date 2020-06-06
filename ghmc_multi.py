@@ -14,7 +14,7 @@ def sqrtm(x):
     L = np.matmul(np.matmul(vh,np.diag(np.sqrt(np.abs(s)))),vh.T)
     return L
 
-def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,callback=None,POINTS=10,AC=0.3,STEPS=10):
+def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,callback=None,POINTS=10,AC=0.5,STEPS=10):
 
     decay = 0.1
     decay_dt = 0.01
@@ -121,7 +121,6 @@ if __name__ == '__main__':
     EPISODE = 10000
     D = 2
     n = POINTS
-    STEPS = 5
     rho = [.1,
            .2,
            .3,
@@ -140,18 +139,22 @@ if __name__ == '__main__':
            .99999999,
     ]
     ds = []
+    EXP = 2
     for i in range(len(rho)):
         print(i)
         r = rho[i]
-        SIGMA = np.array([[1, r],[r, 1]])
+        if EXP==1:
+            SIGMA = np.array([[1, r],[r, 1]])
+        else:
+            SIGMA = np.array([[1/r, r],[r, 1/r]])
         U = lambda x: np.sum(x * np.linalg.solve(SIGMA,x), axis = 0)/2
         dU = lambda x: np.linalg.solve(SIGMA, x)
 
 
-        info = ghmc(U, dU, D=D, dt=dt,EPISODE=EPISODE, POINTS=POINTS,VERBOSE=True)
+        info = ghmc(U, dU, D=D, dt=dt,EPISODE=EPISODE, POINTS=POINTS,VERBOSE=False,AC=0.3)
         x = info['x']
 
-        d0 = np.sum(np.square(np.cov(np.transpose(x[int(POINTS*EPISODE/2):,:])) - SIGMA))
+        d0 = np.sqrt(np.mean(np.square(np.cov(np.transpose(x[int(POINTS*EPISODE/2):,:])) - SIGMA)))
         ds.append(d0)
         print(np.cov(np.transpose(x[int(POINTS*EPISODE/2):,:])), SIGMA)
         print(d0)
@@ -159,7 +162,7 @@ if __name__ == '__main__':
 
     plt.plot(ds,'o-')
     plt.yscale('log')
-    plt.xlabel('rho')
+    plt.xlabel(r'$\rho$')
     plt.xticks(list(range(len(rho))), [str(r) for r in rho], rotation=20)
 
     plt.ylabel(r'$\left|\Sigma - \hat \Sigma\right|$')
