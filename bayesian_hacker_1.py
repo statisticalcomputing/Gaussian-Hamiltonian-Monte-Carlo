@@ -13,7 +13,7 @@ BURNIN = 5000
 
 # data
 
-count_data = loadtxt("/var/u1/Downloads/Probabilistic-Programming-and-Bayesian-Methods-for-Hackers-master/Chapter1_Introduction/data/txtdata.csv")
+count_data = loadtxt("/home/user/Downloads/Probabilistic-Programming-and-Bayesian-Methods-for-Hackers-master/Chapter1_Introduction/data/txtdata.csv")
 n_count_data = len(count_data)
 count_data = np.array(count_data)
 count_data = np.repeat(count_data[np.newaxis,:], POINTS, axis=0)
