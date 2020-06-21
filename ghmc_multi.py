@@ -7,20 +7,17 @@ from numpy.random import randn, rand
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
 
-np.random.seed(0)
+
 
 def sqrtm(x):
     u, s, vh = np.linalg.svd(x, full_matrices=True)
     L = np.matmul(np.matmul(vh,np.diag(np.sqrt(np.abs(s)))),vh.T)
     return L
 
-def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,callback=None,POINTS=10,AC=0.5,STEPS=10):
+def ghmc(U,dU, D,dt = .000001,EPISODE=10000, BURNIN=None,VERBOSE=False,POINTS=10,AC=0.3,STEPS=10):
 
     decay = 0.1
     decay_dt = 0.01
-    if D is None:
-        print("D")
-        exit(0)
 
     if BURNIN is None:
         BURNIN = int(EPISODE/4)
@@ -30,27 +27,28 @@ def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,cal
     z2x = lambda z: z
     x2z = lambda x: x
 
+    mu_0 = np.zeros((D,1))
+    cov_0 = np.eye(D)
+
+    cov_hat_half = sqrtm(cov_0)
+    z2x = lambda z: np.dot(cov_hat_half, z) + mu_0
+    x2z = lambda x: np.linalg.solve(cov_hat_half, x - mu_0)
+
+
     K = lambda p: np.sum(p*p, axis=0)/2
     dK = lambda p: p
 
     pStar = np.random.randn(D, POINTS)
     xStar = np.random.randn(D, POINTS)
 
-    cov_hat = np.eye(D)
-    cov_hat_half = sqrtm(cov_hat)
-    mu_0 = np.zeros((D,1))
-
-
     kappa_0 = n
-    LAMBDA_0 = np.cov(xStar)
+    LAMBDA_0 = 0
 
     H = np.sum(U(xStar) + K(pStar))
 
     p = [pStar]
     x = [xStar]
-    fixed = False
-    alphas = []
-    deltas = []
+
     for j in range(EPISODE):
         if j<BURNIN:
             xx = x[-1]
@@ -67,6 +65,8 @@ def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,cal
             LAMBDA_0 = LAMBDA_n
             z2x = lambda z: np.dot(cov_hat_half, z) + mu_0
             x2z = lambda x: np.linalg.solve(cov_hat_half, x - mu_0)
+            K = lambda p: np.sum(p * np.dot(cov_hat,p), axis = 0)/2
+            dK = lambda p: np.dot(cov_hat, p)
 
         xStar = x[-1]
         K0 = np.clip(H - U(xStar).sum(),1e-3,H)
@@ -74,48 +74,46 @@ def ghmc(U,dU, dt = .000001,D=None, EPISODE=10000, BURNIN=None,VERBOSE=False,cal
         K1 = K(p0).sum()
         r0 = np.sqrt(K1/K0)
         pStar = p0 / r0
+        p1 = pStar.copy()
+        x1 = xStar
 
-        zStar = x2z(xStar)
         E = [U(xStar)]
         for s in range(STEPS):
-            zStar = zStar + dt*dK(pStar)
-            pStar = pStar - dt*np.dot(cov_hat_half, dU(z2x(zStar)))
-            E.append(U(z2x(zStar)))
+            xStar = xStar + dt*dK(pStar)
+            pStar = pStar - dt*dU(xStar)
+            E.append(U(xStar))
 
-        xStar = z2x(zStar)
 
         alpha = np.exp(np.clip(U(x[-1])- U(xStar),-10,0))
+
         ridx = alpha < np.random.rand(POINTS)
         xStar[:,ridx] = x[-1][:,ridx]
         pStar[:,ridx] = p[-1][:,ridx]
         x.append(xStar)
         p.append(pStar)
 
-        M = np.mean(np.array(E).argmax(axis=0))
-        m = np.mean(np.array(E).argmin(axis=0))
         S = np.unique(np.array(E).argmax(axis=0)).size
         s = np.unique(np.array(E).argmin(axis=0)).size
 
-        alphas.append(alpha.mean())
-        deltas.append(dt)
         if j < BURNIN:
             turned_AC = np.random.randn()*min(AC,1-AC)/6 + AC
-            if alpha.mean() > turned_AC:#np.random.rand()*(1-AC)+AC:
+            if alpha.mean() > turned_AC:
                 H = H*(1+decay)
-            elif alpha.mean() < turned_AC:#np.random.rand()*AC:
+            elif alpha.mean() < turned_AC:
                 H = H/(1+decay)
             if s==2 or S == 2:
                 dt = dt*(1+decay_dt)
-            elif np.array([M,m]).std()>1:
+            elif S > 2:
                 dt = dt/(1+decay_dt)
             decay = decay * DECAY_FACTOR
             decay_dt = decay_dt * DECAY_FACTOR
         if VERBOSE and j % 1000 == 0:
-            print(j, np.mean(alpha),dt,M,m,S,s,np.array([M,m]).std())
-    return {'x': np.swapaxes(np.array(x),1,2).reshape(-1,2), 'p':np.array(p),'alpha':alphas,'delta':deltas}
+            print(j, np.mean(alpha),dt,S,s)
+    return np.swapaxes(np.array(x),1,2).reshape(-1,D)
 
 
 if __name__ == '__main__':
+    #np.random.seed(0)
     dt = .0001
     POINTS = 1000
     EPISODE = 10000
@@ -139,7 +137,7 @@ if __name__ == '__main__':
            .99999999,
     ]
     ds = []
-    EXP = 2
+    EXP = 1
     for i in range(len(rho)):
         print(i)
         r = rho[i]
@@ -151,9 +149,7 @@ if __name__ == '__main__':
         dU = lambda x: np.linalg.solve(SIGMA, x)
 
 
-        info = ghmc(U, dU, D=D, dt=dt,EPISODE=EPISODE, POINTS=POINTS,VERBOSE=False,AC=0.3)
-        x = info['x']
-
+        x = ghmc(U, dU, D=D, dt=dt,EPISODE=EPISODE, POINTS=POINTS,VERBOSE=False,AC=0.3)
         d0 = np.sqrt(np.mean(np.square(np.cov(np.transpose(x[int(POINTS*EPISODE/2):,:])) - SIGMA)))
         ds.append(d0)
         print(np.cov(np.transpose(x[int(POINTS*EPISODE/2):,:])), SIGMA)
