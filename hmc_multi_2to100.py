@@ -1,7 +1,16 @@
 '''
-compare HMC with CHMC or HMC with HMC_NEW
-simultaneously sample multiple particles (Markov chains)
-redistribute energy among particles (the conserve energy method)
+* compare HMC with CHMC or HMC with HMC_NEW
+* In general, CHMC and HMC_NEW is somehow better than the original HMC, except for high dimensional and highly correlated cases.
+* HMC has a peculiar character: large error for low dimensional cases.
+
+1. simultaneously sample multiple particles (Markov chains)
+2. redistribute energy among particles (the conserve energy method)
+3. automatically tune time step and total energy
+
+more code:
+https://github.com/statisticalcomputing/Gaussian-Hamiltonian-Monte-Carlo/blob/master/hmc_vanilla.py
+more discussion:
+https://statisticalcomputing.github.io/hmc1.html
 '''
 
 import numpy as np
@@ -134,6 +143,7 @@ if __name__ == '__main__':
     EXP = 2
     DS1 = []
     DS2 = []
+    color = ['red','black','blue']
     for i in range(len(DS)):
         ds1 = []
         ds2 = []
@@ -163,8 +173,8 @@ if __name__ == '__main__':
     DS1 = np.array(DS1)
     DS2 = np.array(DS2)
     for i in range(len(rho)):
-        plt.plot(DS1[:,i],'--',color='red',marker='*')
-        plt.plot(DS2[:,i],'-' ,color='black',marker='+')
+        plt.plot(DS1[:,i],'--',color=color[i],marker='*')
+        plt.plot(DS2[:,i],'-' ,color=color[i],marker='+')
     plt.yscale('log')
     plt.xlabel(r'Dimension')
     plt.xticks(list(range(len(DS))), [str(d) for d in DS])
